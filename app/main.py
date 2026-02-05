@@ -1,7 +1,7 @@
 """
-FEATURE FREEZE COMPLETE - DEMO-ONLY MODE
-Locked on: 2026-02-02
-Version: 1.1.0 (PROD-LOCKED)
+Task Review AI - Production Maintenance Mode
+Updated on: 2026-02-05
+Version: 1.1.1
 """
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse

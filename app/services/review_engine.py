@@ -1,7 +1,7 @@
 """
-FEATURE FREEZE COMPLETE - DEMO-ONLY MODE
-Locked on: 2026-02-02
-Logic: Rule-Based Deterministic v2
+Task Review AI - Modular Engine v2.1
+Updated on: 2026-02-05
+Logic: Modular Deterministic Rule Evaluators
 """
 from ..models.schemas import Task, ReviewOutput
 import logging
@@ -35,59 +35,80 @@ class ReviewEngine:
     }
 
     @staticmethod
-    def review_task(task: Task, is_demo: bool = False, demo_type: str = None) -> ReviewOutput:
+    def _evaluate_title(title: str, gaps: list, hints: list) -> int:
+        t_len = len(title)
+        if t_len > 40:
+            return 15
+        if t_len > 20:
+            return 10
+        gaps.append("Brief title reduces context.")
+        hints.append("Expand title to 40+ characters.")
+        return 5
+
+    @staticmethod
+    def _evaluate_description(description: str, gaps: list, hints: list) -> int:
+        d_len = len(description)
+        if d_len > 500:
+            return 30
+        if d_len > 200:
+            return 20
+        if d_len > 50:
+            return 10
+        gaps.append("Minimal description substance.")
+        hints.append("Provide detailed technical context.")
+        return 0
+
+    @staticmethod
+    def _evaluate_markers(description: str, gaps: list, hints: list) -> int:
+        score = 0
+        description_lower = description.lower()
+        for marker in ["requirement", "objective", "constraint"]:
+            if marker in description_lower:
+                score += 10
+            else:
+                gaps.append(f"Missing logical marker: '{marker}'")
+                hints.append(f"Define task {marker}s.")
+        return score
+
+    @staticmethod
+    def _evaluate_technical_keywords(description: str, gaps: list, hints: list) -> int:
+        tech = ["api", "database", "schema", "validation", "security", "async", "cache", "frontend"]
+        description_lower = description.lower()
+        found = [k for k in tech if k in description_lower]
+        score = min(25, len(found) * 5)
+        
+        if len(found) < 2:
+            gaps.append("Low technical specificity.")
+            hints.append("Include technical implementation details.")
+        return score
+
+    @classmethod
+    def review_task(cls, task: Task, is_demo: bool = False, demo_type: str = None) -> ReviewOutput:
         """
         Pure deterministic review processor. Same Input -> Same Output.
         """
-        if is_demo and demo_type in ReviewEngine.DEMO_SCENARIOS:
-            return ReviewEngine.DEMO_SCENARIOS[demo_type]
+        if is_demo and demo_type in cls.DEMO_SCENARIOS:
+            return cls.DEMO_SCENARIOS[demo_type]
 
         gaps = []
         hints = []
         score = 0
         
-        # Rule 1: Title Depth
-        t_len = len(task.task_title)
-        if t_len > 40: score += 15
-        elif t_len > 20: score += 10
-        else:
-            score += 5
-            gaps.append("Brief title reduces context.")
-            hints.append("Expand title to 40+ characters.")
-
-        # Rule 2: Description Detail
-        d_len = len(task.task_description)
-        if d_len > 500: score += 30
-        elif d_len > 200: score += 20
-        elif d_len > 50: score += 10
-        else:
-            gaps.append("Minimal description substance.")
-            hints.append("Provide detailed technical context.")
-
-        # Rule 3: Structural Markers
-        for marker in ["requirement", "objective", "constraint"]:
-            if marker in task.task_description.lower():
-                score += 10
-            else:
-                gaps.append(f"Missing logical marker: '{marker}'")
-                hints.append(f"Define task {marker}s.")
-
-        # Rule 4: Technical Keywords
-        tech = ["api", "database", "schema", "validation", "security", "async", "cache", "frontend"]
-        found = [k for k in tech if k in task.task_description.lower()]
-        score += min(25, len(found) * 5)
-        
-        if len(found) < 2:
-            gaps.append("Low technical specificity.")
-            hints.append("Include technical implementation details.")
+        score += cls._evaluate_title(task.task_title, gaps, hints)
+        score += cls._evaluate_description(task.task_description, gaps, hints)
+        score += cls._evaluate_markers(task.task_description, gaps, hints)
+        score += cls._evaluate_technical_keywords(task.task_description, gaps, hints)
 
         final_score = min(100, score)
         readiness = int(final_score * 0.85) if final_score < 90 else final_score
         
         summary = f"Analysis complete (Score: {final_score}). "
-        if final_score >= 85: summary += "Production ready."
-        elif final_score >= 60: summary += "Minor refinement required."
-        else: summary += "Major overhaul required."
+        if final_score >= 85:
+            summary += "Production ready."
+        elif final_score >= 60:
+            summary += "Minor refinement required."
+        else:
+            summary += "Major overhaul required."
 
         return ReviewOutput(
             score=final_score,
